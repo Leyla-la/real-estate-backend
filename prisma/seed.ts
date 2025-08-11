@@ -1,4 +1,5 @@
-import { PrismaClient, Prisma } from "@prisma/client";
+
+import { Prisma, PrismaClient } from "@prisma/client";
 import fs from "fs";
 import path from "path";
 
