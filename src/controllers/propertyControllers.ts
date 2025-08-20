@@ -5,10 +5,11 @@ import { S3Client } from "@aws-sdk/client-s3";
 import { Location } from "@prisma/client";
 import { Upload } from "@aws-sdk/lib-storage";
 import axios from "axios";
+
 const prisma = new PrismaClient();
 
 const s3Client = new S3Client({
-  region: process.env.AWS_REGION || "ap-southeast-2",
+  region: process.env.AWS_REGION!,
 });
 
 export const getProperties = async (
@@ -166,9 +167,14 @@ export const getProperty = async (
       const coordinates: { coordinates: string }[] =
         await prisma.$queryRaw`SELECT ST_asText(coordinates) as coordinates from "Location" where id = ${property.location.id}`;
 
-      const geoJSON: any = wktToGeoJSON(coordinates[0]?.coordinates || "");
-      const longitude = geoJSON.coordinates[0];
-      const latitude = geoJSON.coordinates[1];
+        let longitude = 0;
+        let latitude = 0;
+
+        if (coordinates.length > 0 && coordinates[0]?.coordinates) {
+          const geoJSON: any = wktToGeoJSON(coordinates[0].coordinates);
+          longitude = geoJSON.coordinates[0];
+          latitude = geoJSON.coordinates[1];
+        }
 
       const propertyWithCoordinates = {
         ...property,
@@ -253,6 +259,10 @@ export const createProperty = async (
       RETURNING id, address, city, state, country, "postalCode", ST_AsText(coordinates) as coordinates;
     `;
 
+    if (!location) {
+      throw new Error("Failed to create location");
+    }
+    
     // create property
     const newProperty = await prisma.property.create({
       data: {
@@ -290,4 +300,3 @@ export const createProperty = async (
       .json({ message: `Error creating property: ${err.message}` });
   }
 };
-111
