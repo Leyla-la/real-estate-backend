@@ -9,7 +9,7 @@ import axios from "axios";
 const prisma = new PrismaClient();
 
 const s3Client = new S3Client({
-  region: process.env.AWS_REGION ?? "ap-southeast-2",
+  region: process.env.AWS_REGION!,
 });
 
 export const getProperties = async (
@@ -167,14 +167,9 @@ export const getProperty = async (
       const coordinates: { coordinates: string }[] =
         await prisma.$queryRaw`SELECT ST_asText(coordinates) as coordinates from "Location" where id = ${property.location.id}`;
 
-        let longitude = 0;
-        let latitude = 0;
-
-        if (coordinates.length > 0 && coordinates[0]?.coordinates) {
-          const geoJSON: any = wktToGeoJSON(coordinates[0].coordinates);
-          longitude = geoJSON.coordinates[0];
-          latitude = geoJSON.coordinates[1];
-        }
+      const geoJSON: any = wktToGeoJSON(coordinates[0]?.coordinates || "");
+      const longitude = geoJSON.coordinates[0];
+      const latitude = geoJSON.coordinates[1];
 
       const propertyWithCoordinates = {
         ...property,
@@ -260,40 +255,40 @@ export const createProperty = async (
     `;
 
     if (!location) {
-      throw new Error("Failed to create location");
-    }
-    
-    // create property
-    const newProperty = await prisma.property.create({
-      data: {
-        ...propertyData,
-        photoUrls,
-        locationId: location.id,
-        managerCognitoId,
-        amenities:
-          typeof propertyData.amenities === "string"
-            ? propertyData.amenities.split(",")
-            : [],
-        highlights:
-          typeof propertyData.highlights === "string"
-            ? propertyData.highlights.split(",")
-            : [],
-        isPetsAllowed: propertyData.isPetsAllowed === "true",
-        isParkingIncluded: propertyData.isParkingIncluded === "true",
-        pricePerMonth: parseFloat(propertyData.pricePerMonth),
-        securityDeposit: parseFloat(propertyData.securityDeposit),
-        applicationFee: parseFloat(propertyData.applicationFee),
-        beds: parseInt(propertyData.beds),
-        baths: parseFloat(propertyData.baths),
-        squareFeet: parseInt(propertyData.squareFeet),
-      },
-      include: {
-        location: true,
-        manager: true,
-      },
-    });
+      res.status(500).json({ message: "Failed to create location." });
+    } else {
+      // create property
+      const newProperty = await prisma.property.create({
+        data: {
+          ...propertyData,
+          photoUrls,
+          locationId: location.id,
+          managerCognitoId,
+          amenities:
+            typeof propertyData.amenities === "string"
+              ? propertyData.amenities.split(",")
+              : [],
+          highlights:
+            typeof propertyData.highlights === "string"
+              ? propertyData.highlights.split(",")
+              : [],
+          isPetsAllowed: propertyData.isPetsAllowed === "true",
+          isParkingIncluded: propertyData.isParkingIncluded === "true",
+          pricePerMonth: parseFloat(propertyData.pricePerMonth),
+          securityDeposit: parseFloat(propertyData.securityDeposit),
+          applicationFee: parseFloat(propertyData.applicationFee),
+          beds: parseInt(propertyData.beds),
+          baths: parseFloat(propertyData.baths),
+          squareFeet: parseInt(propertyData.squareFeet),
+        },
+        include: {
+          location: true,
+          manager: true,
+        },
+      });
 
-    res.status(201).json(newProperty);
+      res.status(201).json(newProperty);
+    }
   } catch (err: any) {
     res
       .status(500)
